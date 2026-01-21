@@ -47,6 +47,8 @@ type FirestoreSingle = {
 type FirestoreMultiple = ({
   rules?: string;
   indexes?: string;
+  edition?: string;
+  location?: string;
 } & RequireAtLeastOne<{
   database: string;
   target: string;

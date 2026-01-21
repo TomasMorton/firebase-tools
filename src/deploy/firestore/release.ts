@@ -1,13 +1,13 @@
-import { RulesDeploy, RulesetServiceType } from "../../rulesDeploy";
-import { RulesContext } from "./prepare";
+import { RulesetServiceType } from "../../rulesDeploy";
+import { Context, RulesContext } from "./context";
 
 /**
  * Releases Firestore rules.
  * @param context The deploy context.
  * @param options The CLI options object.
  */
-export default async function (context: any /** , options: DeployOptions*/): Promise<void> {
-  const rulesDeploy: RulesDeploy = context?.firestore?.rulesDeploy;
+export default async function (context: Context /** , options: DeployOptions*/): Promise<void> {
+  const rulesDeploy = context?.firestore?.rulesDeploy;
   if (!context.firestoreRules || !rulesDeploy) {
     return;
   }

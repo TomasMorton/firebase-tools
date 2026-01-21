@@ -13,17 +13,7 @@ import { FirebaseError } from "../../error";
 import * as types from "../../firestore/api-types";
 import { FirestoreConfig } from "../../firebaseConfig";
 import { FirestoreApi } from "../../firestore/api";
-
-export interface RulesContext {
-  databaseId: string;
-  rulesFile: string;
-}
-
-export interface IndexContext {
-  databaseId: string;
-  indexesFileName: string;
-  indexesRawSpec: any; // could be the old v1beta1 indexes spec or the new v1/v1 format
-}
+import { Context, RulesContext } from "./context";
 
 /**
  * Prepares Firestore Rules deploys.
@@ -33,7 +23,7 @@ export interface IndexContext {
  * @param rulesFile File name for the Firestore rules to be deployed.
  */
 function prepareRules(
-  context: any,
+  context: Context,
   rulesDeploy: RulesDeploy,
   databaseId: string,
   rulesFile: string,
@@ -42,7 +32,7 @@ function prepareRules(
   context.firestore.rules.push({
     databaseId,
     rulesFile,
-  } as RulesContext);
+  });
 }
 
 /**
@@ -53,7 +43,7 @@ function prepareRules(
  * @param indexesFileName File name for the index configs to be parsed from.
  */
 function prepareIndexes(
-  context: any,
+  context: Context,
   options: Options,
   databaseId: string,
   indexesFileName: string,
@@ -69,53 +59,30 @@ function prepareIndexes(
     databaseId,
     indexesFileName,
     indexesRawSpec,
-  } as IndexContext);
+  });
 }
-async function createDatabase(context: any, options: Options): Promise<void> {
-  let firestoreCfg: FirestoreConfig = options.config.data.firestore;
-  if (Array.isArray(firestoreCfg)) {
-    firestoreCfg = firestoreCfg[0];
-  }
+
+async function createDatabase(context: Context, options: Options): Promise<void> {
   if (!options.projectId) {
     throw new FirebaseError("Project ID is required to create a Firestore database.");
-  }
-  if (!firestoreCfg) {
-    throw new FirebaseError("Firestore database configuration not found in firebase.json.");
-  }
-  if (!firestoreCfg.database) {
-    firestoreCfg.database = "(default)";
-  }
-
-  let edition: types.DatabaseEdition = types.DatabaseEdition.STANDARD;
-  if (firestoreCfg.edition) {
-    const upperEdition = firestoreCfg.edition.toUpperCase();
-    if (
-      upperEdition !== types.DatabaseEdition.STANDARD &&
-      upperEdition !== types.DatabaseEdition.ENTERPRISE
-    ) {
-      throw new FirebaseError(
-        `Invalid edition specified for database in firebase.json: ${firestoreCfg.edition}`,
-      );
-    }
-    edition = upperEdition as types.DatabaseEdition;
-  }
+}
+  const databaseId = getDatabaseId(options);
+  const databaseEdition = getFirstDatabaseEdition(options);
+  const location = getFirstLocation(options);
 
   const api = new FirestoreApi();
   try {
-    await api.getDatabase(options.projectId, firestoreCfg.database);
+    await api.getDatabase(options.projectId, databaseId);
   } catch (e: any) {
     if (e.status === 404) {
       // Database is not found. Let's create it.
-      utils.logLabeledBullet(
-        "firestore",
-        `Creating the new Firestore database ${firestoreCfg.database}...`,
-      );
+      utils.logLabeledBullet("firestore", `Creating the new Firestore database ${databaseId}...`);
       const createDatabaseReq: types.CreateDatabaseReq = {
         project: options.projectId,
-        databaseId: firestoreCfg.database,
-        locationId: firestoreCfg.location || "nam5", // Default to 'nam5' if location is not specified
+        databaseId: databaseId,
+        locationId: location,
         type: types.DatabaseType.FIRESTORE_NATIVE,
-        databaseEdition: edition,
+        databaseEdition: databaseEdition,
         deleteProtectionState: types.DatabaseDeleteProtectionState.DISABLED,
         pointInTimeRecoveryEnablement: types.PointInTimeRecoveryEnablement.DISABLED,
       };
@@ -124,12 +91,58 @@ async function createDatabase(context: any, options: Options): Promise<void> {
   }
 }
 
+function getFirstFirestoreConfig(options: Options): FirestoreConfig {
+  let firestoreCfg: FirestoreConfig = options.config.data.firestore;
+  if (Array.isArray(firestoreCfg)) {
+    firestoreCfg = firestoreCfg[0];
+  }
+  if (!firestoreCfg) {
+    throw new FirebaseError("Firestore database configuration not found in firebase.json.");
+  }
+  return firestoreCfg;
+}
+
+function getDatabaseId(options: Options): string {
+  const config = getFirstFirestoreConfig(options);
+  if ("database" in config && config.database) {
+    return config.database;
+  }
+  return "(default)";
+  }
+
+function getFirstLocation(options: Options): string {
+  const config = getFirstFirestoreConfig(options);
+  if ("location" in config && config.location) {
+    return config.location;
+  }
+  return "nam5"; // Default to 'nam5' if location is not specified
+}
+
+function getFirstDatabaseEdition(options: Options): types.DatabaseEdition {
+  const config = getFirstFirestoreConfig(options);
+
+  let edition: types.DatabaseEdition = types.DatabaseEdition.STANDARD;
+  if ("edition" in config && config.edition) {
+    const upperEdition = config.edition.toUpperCase();
+    if (
+      upperEdition !== types.DatabaseEdition.STANDARD &&
+      upperEdition !== types.DatabaseEdition.ENTERPRISE
+    ) {
+      throw new FirebaseError(
+        `Invalid edition specified for database in firebase.json: ${config.edition}`,
+      );
+    }
+    edition = upperEdition as types.DatabaseEdition;
+  }
+  return edition;
+}
+
 /**
  * Prepares Firestore deploys.
  * @param context The deploy context.
  * @param options The CLI options object.
  */
-export default async function (context: any, options: DeployOptions): Promise<void> {
+export default async function (context: Context, options: DeployOptions): Promise<void> {
   await ensure(context.projectId, firestoreOrigin(), "firestore");
   await ensure(context.projectId, firestoreOrigin(), "firestore");
   if (options.only) {

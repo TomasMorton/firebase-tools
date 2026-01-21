@@ -3,17 +3,18 @@ import * as clc from "colorette";
 import { FirestoreApi } from "../../firestore/api";
 import { logger } from "../../logger";
 import * as utils from "../../utils";
-import { RulesDeploy, RulesetServiceType } from "../../rulesDeploy";
-import { IndexContext } from "./prepare";
+import { RulesetServiceType } from "../../rulesDeploy";
+import { IndexContext } from "./context";
 import { sleep } from "../../utils";
 import { Options } from "../../options";
+import { Context } from "./context";
 
 /**
  * Deploys Firestore Rules.
  * @param context The deploy context.
  */
-async function deployRules(context: any): Promise<void> {
-  const rulesDeploy: RulesDeploy = context?.firestore?.rulesDeploy;
+async function deployRules(context: Context): Promise<void> {
+  const rulesDeploy = context?.firestore?.rulesDeploy;
   if (!context.firestoreRules || !rulesDeploy) {
     return;
   }
@@ -25,11 +26,11 @@ async function deployRules(context: any): Promise<void> {
  * @param context The deploy context.
  * @param options The CLI options object.
  */
-async function deployIndexes(context: any, options: any): Promise<void> {
+async function deployIndexes(context: Context, options: any): Promise<void> {
   if (!context.firestoreIndexes) {
     return;
   }
-  const indexesContext: IndexContext[] = context?.firestore?.indexes;
+  const indexesContext = context?.firestore?.indexes;
 
   utils.logBullet(clc.bold(clc.cyan("firestore: ")) + "deploying indexes...");
   const firestoreIndexes = new FirestoreApi();
@@ -72,7 +73,7 @@ async function deployIndexes(context: any, options: any): Promise<void> {
  * @param context The deploy context.
  * @param options The CLI options object.
  */
-export default async function (context: any, options: Options): Promise<void> {
+export default async function (context: Context, options: Options): Promise<void> {
   await deployRules(context);
   await deployIndexes(context, options);
 }
