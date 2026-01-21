@@ -178,6 +178,7 @@ export default async function (context: Context, options: DeployOptions): Promis
   context.firestore = context.firestore || {};
   context.firestore.indexes = [];
   context.firestore.rules = [];
+  // TODO: We need to pass in the database in the options here to get the right rules
   const rulesDeploy: RulesDeploy = new RulesDeploy(options, RulesetServiceType.CLOUD_FIRESTORE);
   context.firestore.rulesDeploy = rulesDeploy;
 

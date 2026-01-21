@@ -103,6 +103,7 @@ export class RulesDeploy {
   private async getCurrentRules(
     service: RulesetServiceType,
   ): Promise<{ latestName: string | null; latestContent: RulesetFile[] | null }> {
+    // TODO: Support resourceId
     const latestName = await gcp.rules.getLatestRulesetName(this.options.project, service);
     let latestContent: RulesetFile[] | null = null;
     if (latestName) {

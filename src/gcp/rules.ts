@@ -19,7 +19,32 @@ function _handleErrorResponse(response: any): any {
 }
 
 /**
- * Gets the latest ruleset name on the project.
+ * Gets the ruleset name for the resource in the project.
+ *
+ * @param projectId Project from which you want to get the ruleset.
+ * @param service Service for the ruleset (ex: cloud.firestore or firebase.storage).
+ * @param resourceId Id of the resource within the project with the
+ *                  release (e.g. a firestore database ID).
+ * @return Name of the latest ruleset.
+ */
+export async function getRulesetName(
+  projectId: string,
+  service: string,
+  resourceId: string,
+): Promise<string | null> {
+  const release = await getRelease(projectId, service, resourceId);
+
+  if (!release) {
+    logger.debug(`[rules] no releases found for ${projectId}/${service}/${resourceId}`);
+    return null;
+  }
+  logger.debug("[rules] selected release: ", release);
+  return release.rulesetName;
+}
+
+/**
+ * * Gets the latest ruleset name on the project.
+ *
  * @param projectId Project from which you want to get the ruleset.
  * @param service Service for the ruleset (ex: cloud.firestore or firebase.storage).
  * @return Name of the latest ruleset.
@@ -33,8 +58,10 @@ export async function getLatestRulesetName(
   const release = releases.find((r) => r.name.startsWith(prefix));
 
   if (!release) {
+    logger.debug("[rules] no releases found matching ", prefix);
     return null;
   }
+  logger.debug("[rules] selected release: ", release);
   return release.rulesetName;
 }
 
@@ -87,6 +114,29 @@ export async function listAllReleases(projectId: string): Promise<Release[]> {
     pageToken = response.nextPageToken;
   } while (pageToken);
   return releases.sort((a, b) => b.createTime.localeCompare(a.createTime));
+}
+
+/**
+ * Gets the release for the resource.
+ *
+ * @param projectId Project from which you want to get the ruleset.
+ * @param service Service for the ruleset (ex: cloud.firestore or firebase.storage).
+ * @param resourceId Id of the resource within the project with the
+ *                  release (e.g. a firestore database ID).
+ */
+export async function getRelease(
+  projectId: string,
+  type: string,
+  resourceId?: string,
+): Promise<Release> {
+  const url = !resourceId
+    ? `/projects/${projectId}/releases/${type}`
+    : `/projects/${projectId}/releases/${type}/${resourceId}`;
+  const response = await apiClient.get<Release>(url);
+  if (response.status === 200) {
+    return response.body;
+  }
+  return _handleErrorResponse(response);
 }
 
 export interface RulesetFile {
